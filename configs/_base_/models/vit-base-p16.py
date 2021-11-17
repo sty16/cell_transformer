@@ -17,7 +17,7 @@ model = dict(
     neck=None,
     head=dict(
         type='VisionTransformerClsHead',
-        num_classes=1000,
+        num_classes=11,
         in_channels=768,
         loss=dict(
             type='LabelSmoothLoss', label_smooth_val=0.1,
