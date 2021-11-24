@@ -359,6 +359,7 @@ class MultiheadAttention(BaseModule):
 
         attn = (q @ k.transpose(-2, -1)) * self.scale
         attn = attn.softmax(dim=-1)
+        weight = attn
         attn = self.attn_drop(attn)
 
         x = (attn @ v).transpose(1, 2).reshape(B, N, self.embed_dims)
@@ -367,4 +368,4 @@ class MultiheadAttention(BaseModule):
 
         if self.v_shortcut:
             x = v.squeeze(1) + x
-        return x
+        return x, weight
