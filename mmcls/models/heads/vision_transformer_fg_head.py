@@ -2,6 +2,7 @@
 import math
 from collections import OrderedDict
 
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from mmcv.cnn import build_activation_layer
@@ -76,12 +77,30 @@ class VisionTransformerFgClsHead(ClsHead):
         if isinstance(cls_score, list):
             cls_score = sum(cls_score) / float(len(cls_score))
         pred = F.softmax(cls_score, dim=1) if cls_score is not None else None
-
         return self.post_process(pred)
 
     def forward_train(self, x, gt_label, **kwargs):
         x = x[-1]
         _, cls_token = x
         cls_score = self.layers(cls_token)
-        losses = self.loss(cls_score, gt_label, **kwargs)
+        cls_loss = self.loss(cls_score, gt_label, **kwargs)
+        contrast_loss = self.contrast_loss(cls_token, gt_label.view(-1))
+        losses = cls_loss + contrast_loss
         return losses
+
+    def contrast_loss(self, tokens, gt_label):
+        alpha = 0.4
+        B = tokens.shape[0]
+        tokens = F.normalize(tokens)
+        cor_matrix = tokens.mm(tokens.t())
+        pos_gt_matrix = torch.stack([gt_label == tag for tag in gt_label]).float()
+        neg_gt_matrix = 1 - pos_gt_matrix
+        pos_cor_matrix = 1 - cor_matrix
+        neg_cor_matrix = cor_matrix - alpha
+        neg_cor_matrix[neg_cor_matrix < 0] = 0
+        loss = (pos_cor_matrix * pos_gt_matrix).sum() + (neg_cor_matrix * neg_gt_matrix).sum()
+        loss /= (B * B)
+        return loss
+
+
+
