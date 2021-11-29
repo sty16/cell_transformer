@@ -18,6 +18,7 @@ from .base_backbone import BaseBackbone
 
 class TransformerEncoderLayer(BaseModule):
     """Implements one encoder layer in Vision Transformer.
+
     Args:
         embed_dims (int): The feature dimension
         num_heads (int): Parallel attention heads
@@ -94,17 +95,46 @@ class TransformerEncoderLayer(BaseModule):
                 nn.init.normal_(m.bias, std=1e-6)
 
     def forward(self, x):
-        x = x + self.attn(self.norm1(x))
+        identity = x
+        out, weight = self.attn(self.norm1(x))
+        x = identity + out
         x = self.ffn(self.norm2(x), identity=x)
-        return x
+        return x, weight
+
+
+class PartAttention(BaseModule):
+    def __init__(self):
+        super(PartAttention, self).__init__()
+
+    def forward(self, x):
+        """
+
+        Args:
+            x (List): The attention weights of each encoder layer, x[i] with the shape [B, num_heads, N, N]
+        Returns:
+            torch.Tensor: The selected Patch of the image [B, num]
+        """
+        num_layer = len(x)
+        assert num_layer > 0, \
+            'input list must not be empty'
+        last_attn = x[0]
+        for i in range(1, num_layer):
+            last_attn = torch.matmul(x[i], last_attn)
+        # select the cls token attention
+        last_attn = last_attn[:, :, 0, 1:]
+        max_value, max_idx = last_attn.max(2)
+        return max_value, max_idx
+
 
 
 @BACKBONES.register_module()
-class VisionTransformer(BaseBackbone):
+class VisionTransformerFg(BaseBackbone):
     """Vision Transformer.
+
     A PyTorch implement of : `An Image is Worth 16x16 Words:
     Transformers for Image Recognition at
     Scale<https://arxiv.org/abs/2010.11929>`_
+
     Args:
         arch (str | dict): Vision Transformer architecture
             Default: 'b'
@@ -237,7 +267,21 @@ class VisionTransformer(BaseBackbone):
                 norm_cfg=norm_cfg)
             _layer_cfg.update(layer_cfgs[i])
             self.layers.append(TransformerEncoderLayer(**_layer_cfg))
-
+        # attention patch selection module
+        self.attn_select = PartAttention()
+        select_layer_cfg = dict(
+            embed_dims=self.embed_dims,
+            num_heads=self.arch_settings['num_heads'],
+            feedforward_channels=self.
+                arch_settings['feedforward_channels'],
+            drop_rate=drop_rate,
+            drop_path_rate=dpr[i],
+            qkv_bias=self.arch_settings.get('qkv_bias', True),
+            norm_cfg=norm_cfg
+        )
+        select_layer_cfg.update(layer_cfgs[0])
+        # attention encoder module
+        self.attn_encoder = TransformerEncoderLayer(**select_layer_cfg)
         self.final_norm = final_norm
         if final_norm:
             self.norm1_name, norm1 = build_norm_layer(
@@ -304,6 +348,7 @@ class VisionTransformer(BaseBackbone):
     @staticmethod
     def resize_pos_embed(pos_embed, src_shape, dst_shape, mode='bicubic'):
         """Resize pos_embed weights.
+
         Args:
             pos_embed (torch.Tensor): Position embedding weights with shape
                 [1, L, C].
@@ -344,9 +389,10 @@ class VisionTransformer(BaseBackbone):
         x = self.drop_after_pos(x)
 
         outs = []
+        attn_weights = []
         for i, layer in enumerate(self.layers):
-            x = layer(x)
-
+            x, weights = layer(x)
+            attn_weights.append(weights)
             if i == len(self.layers) - 1 and self.final_norm:
                 x = self.norm1(x)
 
@@ -360,5 +406,19 @@ class VisionTransformer(BaseBackbone):
                 else:
                     out = patch_token
                 outs.append(out)
-
+        _, patch_select = self.attn_select(attn_weights)
+        # select the graph patch so need to add 1 here
+        patch_select = patch_select + 1
+        attn_parts = []
+        B = patch_select.shape[0]
+        for i in range(B):
+            attn_parts.append(x[i, patch_select[i, :]])
+        attn_parts = torch.stack(attn_parts)
+        attn_parts = torch.cat((x[:, 0].unsqueeze(1), attn_parts), dim=1)
+        attn_encoded_parts, _ = self.attn_encoder(attn_parts)
+        if self.output_cls_token:
+            out = [attn_encoded_parts[:, 1:], attn_encoded_parts[:, 0]]
+        else:
+            out = [attn_encoded_parts]
+        # outs.append(out)
         return tuple(outs)

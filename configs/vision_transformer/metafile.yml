@@ -16,7 +16,7 @@ Collections:
       Title: 'An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale'
     README: configs/vision_transformer/README.md
     Code:
-      URL: https://github.com/open-mmlab/mmclassification/blob/v0.17.0/mmcls/models/backbones/vision_transformer.py
+      URL: https://github.com/open-mmlab/mmclassification/blob/v0.17.0/mmcls/models/backbones/vision_transformer_fg.py
       Version: v0.17.0
 
 Models:
