@@ -19,11 +19,11 @@ from .t2t_vit import T2T_ViT
 from .timm_backbone import TIMMBackbone
 from .tnt import TNT
 from .vgg import VGG
+from .vision_transformer_fg import VisionTransformerFg
 from .vision_transformer import VisionTransformer
-
 __all__ = [
     'LeNet5', 'AlexNet', 'VGG', 'RegNet', 'ResNet', 'ResNeXt', 'ResNetV1d',
     'ResNeSt', 'ResNet_CIFAR', 'SEResNet', 'SEResNeXt', 'ShuffleNetV1',
-    'ShuffleNetV2', 'MobileNetV2', 'MobileNetV3', 'VisionTransformer',
-    'SwinTransformer', 'TNT', 'TIMMBackbone', 'T2T_ViT', 'Res2Net', 'RepVGG'
+    'ShuffleNetV2', 'MobileNetV2', 'MobileNetV3', 'VisionTransformerFg',
+    'SwinTransformer', 'TNT', 'TIMMBackbone', 'T2T_ViT', 'Res2Net', 'RepVGG', 'VisionTransformer'
 ]

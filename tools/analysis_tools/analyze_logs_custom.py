@@ -48,5 +48,3 @@ if __name__ == '__main__':
     plt.ylabel('loss')
     plt.plot(xs, ys, label='loss')
     plt.savefig(metric + 'res.png')
-    #
-
