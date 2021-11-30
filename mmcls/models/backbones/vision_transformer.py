@@ -94,7 +94,8 @@ class TransformerEncoderLayer(BaseModule):
                 nn.init.normal_(m.bias, std=1e-6)
 
     def forward(self, x):
-        x = x + self.attn(self.norm1(x))
+        out, weight = self.attn(self.norm1(x))
+        x = x + out
         x = self.ffn(self.norm2(x), identity=x)
         return x
 

@@ -214,6 +214,8 @@ def main():
             print(f'\ndumping results to {args.out}')
             mmcv.dump(results, args.out)
 
+def main(2)
+
 
 if __name__ == '__main__':
     main()

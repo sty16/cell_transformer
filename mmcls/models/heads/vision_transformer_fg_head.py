@@ -72,7 +72,10 @@ class VisionTransformerFgClsHead(ClsHead):
     def simple_test(self, x):
         """Test without augmentation."""
         x = x[-1]
-        _, cls_token = x
+        if isinstance(x,  list):
+            _, cls_token = x
+        else:
+            assert 'error input is not a list'
         cls_score = self.layers(cls_token)
         if isinstance(cls_score, list):
             cls_score = sum(cls_score) / float(len(cls_score))
@@ -81,7 +84,10 @@ class VisionTransformerFgClsHead(ClsHead):
 
     def forward_train(self, x, gt_label, **kwargs):
         x = x[-1]
-        _, cls_token = x
+        if isinstance(x, list):
+            _, cls_token = x
+        else:
+            assert 'error input is not a list'
         cls_score = self.layers(cls_token)
         losses = self.loss(cls_score, gt_label, **kwargs)
         return losses

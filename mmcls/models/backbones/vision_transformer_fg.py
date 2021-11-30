@@ -197,7 +197,7 @@ class VisionTransformerFg(BaseBackbone):
                  patch_cfg=dict(),
                  layer_cfgs=dict(),
                  init_cfg=None):
-        super(VisionTransformer, self).__init__(init_cfg)
+        super(VisionTransformerFg, self).__init__(init_cfg)
 
         if isinstance(arch, str):
             arch = arch.lower()
@@ -300,7 +300,7 @@ class VisionTransformerFg(BaseBackbone):
             init_cfg.pop('type')
             self._load_checkpoint(**init_cfg)
         else:
-            super(VisionTransformer, self).init_weights()
+            super(VisionTransformerFg, self).init_weights()
             # Modified from ClassyVision
             nn.init.normal_(self.pos_embed, std=0.02)
 
@@ -418,6 +418,6 @@ class VisionTransformerFg(BaseBackbone):
         if self.output_cls_token:
             out = [attn_encoded_parts[:, 1:], attn_encoded_parts[:, 0]]
         else:
-            out = [attn_encoded_parts]
+            out = attn_encoded_parts
         # outs.append(out)
         return tuple(outs)

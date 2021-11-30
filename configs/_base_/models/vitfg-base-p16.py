@@ -1,3 +1,4 @@
+# model settings
 model = dict(
     type='ImageClassifier',
     backbone=dict(
@@ -6,6 +7,7 @@ model = dict(
         img_size=224,
         patch_size=16,
         drop_rate=0.1,
+        output_cls_token=True,
         init_cfg=[
             dict(
                 type='Pretrained',

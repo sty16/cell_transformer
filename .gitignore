@@ -104,6 +104,9 @@ venv.bak/
 # mypy
 .mypy_cache/
 
+# result pictures
+*.png
+*.jpg
 # custom
 /data
 .vscode
