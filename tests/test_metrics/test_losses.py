@@ -36,6 +36,46 @@ def test_asymmetric_loss():
     loss = build_loss(loss_cfg)
     assert torch.allclose(loss(cls_score, label), torch.tensor(5.1186 / 3))
 
+    # test asymmetric_loss with softmax for single label task
+    cls_score = torch.Tensor([[5, -5, 0], [5, -5, 0]])
+    label = torch.Tensor([0, 1])
+    weight = torch.tensor([0.5, 0.5])
+    loss_cfg = dict(
+        type='AsymmetricLoss',
+        gamma_pos=0.0,
+        gamma_neg=0.0,
+        clip=None,
+        reduction='mean',
+        loss_weight=1.0,
+        use_sigmoid=False,
+        eps=1e-8)
+    loss = build_loss(loss_cfg)
+    # test asymmetric_loss for single label task without weight
+    assert torch.allclose(loss(cls_score, label), torch.tensor(2.5045))
+    # test asymmetric_loss for single label task with weight
+    assert torch.allclose(
+        loss(cls_score, label, weight=weight), torch.tensor(2.5045 * 0.5))
+
+    # test soft asymmetric_loss with softmax
+    cls_score = torch.Tensor([[5, -5, 0], [5, -5, 0]])
+    label = torch.Tensor([[1, 0, 0], [0, 1, 0]])
+    weight = torch.tensor([0.5, 0.5])
+    loss_cfg = dict(
+        type='AsymmetricLoss',
+        gamma_pos=0.0,
+        gamma_neg=0.0,
+        clip=None,
+        reduction='mean',
+        loss_weight=1.0,
+        use_sigmoid=False,
+        eps=1e-8)
+    loss = build_loss(loss_cfg)
+    # test soft asymmetric_loss with softmax without weight
+    assert torch.allclose(loss(cls_score, label), torch.tensor(2.5045))
+    # test soft asymmetric_loss with softmax with weight
+    assert torch.allclose(
+        loss(cls_score, label, weight=weight), torch.tensor(2.5045 * 0.5))
+
 
 def test_cross_entropy_loss():
     with pytest.raises(AssertionError):
@@ -161,6 +201,14 @@ def test_focal_loss():
     # test focal_loss with weight
     assert torch.allclose(
         loss(cls_score, label, weight=weight), torch.tensor(0.8522 / 2))
+    # test focal loss for single label task
+    cls_score = torch.Tensor([[5, -5, 0], [5, -5, 0]])
+    label = torch.Tensor([0, 1])
+    weight = torch.tensor([0.5, 0.5])
+    assert torch.allclose(loss(cls_score, label), torch.tensor(0.86664125))
+    # test focal_loss single label with weight
+    assert torch.allclose(
+        loss(cls_score, label, weight=weight), torch.tensor(0.86664125 / 2))
 
 
 def test_label_smooth_loss():

@@ -1,21 +1,35 @@
-# Repvgg: Making vgg-style convnets great again
-<!-- {RepVGG} -->
+# RepVGG
+
+> [Repvgg: Making vgg-style convnets great again](https://arxiv.org/abs/2101.03697)
+<!-- [ALGORITHM] -->
+
+## Abstract
+
+We present a simple but powerful architecture of convolutional neural network, which has a VGG-like inference-time body composed of nothing but a stack of 3x3 convolution and ReLU, while the training-time model has a multi-branch topology. Such decoupling of the training-time and inference-time architecture is realized by a structural re-parameterization technique so that the model is named RepVGG. On ImageNet, RepVGG reaches over 80% top-1 accuracy, which is the first time for a plain model, to the best of our knowledge. On NVIDIA 1080Ti GPU, RepVGG models run 83% faster than ResNet-50 or 101% faster than ResNet-101 with higher accuracy and show favorable accuracy-speed trade-off compared to the state-of-the-art models like EfficientNet and RegNet.
+
+<div align=center>
+<img src="https://user-images.githubusercontent.com/26739999/142573223-f7f14d32-ea08-43a1-81ad-5a6a83ee0122.png" width="60%"/>
+</div>
 
 ## Introduction
 
-<!-- [ALGORITHM] -->
+The checkpoints provided are all `training-time` models. Use the reparameterize tool to switch them to more efficient `inference-time` architecture, which not only has fewer parameters but also less calculations.
 
-```latex
-@inproceedings{ding2021repvgg,
-  title={Repvgg: Making vgg-style convnets great again},
-  author={Ding, Xiaohan and Zhang, Xiangyu and Ma, Ningning and Han, Jungong and Ding, Guiguang and Sun, Jian},
-  booktitle={Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition},
-  pages={13733--13742},
-  year={2021}
-}
+```bash
+python tools/convert_models/reparameterize_repvgg.py ${CFG_PATH} ${SRC_CKPT_PATH} ${TARGET_CKPT_PATH}
 ```
 
-## Pretrain model
+`${CFG_PATH}` is the config file, `${SRC_CKPT_PATH}` is the source chenpoint file, `${TARGET_CKPT_PATH}` is the target deploy weight file path.
+
+To use reparameterized repvgg weight, the config file must switch to [the deploy config files](./deploy) as below:
+
+```bash
+python tools/test.py ${RapVGG_Deploy_CFG} ${CHECK_POINT}
+```
+
+## Results and models
+
+### ImageNet-1k
 
 |    Model    | Epochs |             Params(M)             |            Flops(G)             | Top-1 (%) | Top-5 (%) |                            Config                            |                           Download                           |
 | :---------: | :----: | :-------------------------------: | :-----------------------------: | :-------: | :-------: | :----------------------------------------------------------: | :----------------------------------------------------------: |
@@ -32,20 +46,16 @@
 | RepVGG-B3g4\* |  200   |  83.83 (train) \| 75.63 (deploy)  | 17.9 (train) \| 16.08 (deploy)  |   80.22   |   95.10   | [config (train)](https://github.com/open-mmlab/mmclassification/blob/master/configs/repvgg/repvgg-B3g4_4xb64-autoaug-lbs-mixup-coslr-200e_in1k.py) \|[config (deploy)](https://github.com/open-mmlab/mmclassification/blob/master/configs/repvgg/deploy/repvgg-B3g4_deploy_4xb64-autoaug-lbs-mixup-coslr-200e_in1k.py) | [model](https://download.openmmlab.com/mmclassification/v0/repvgg/repvgg-B3g4_3rdparty_4xb64-autoaug-lbs-mixup-coslr-200e_in1k_20210909-4e54846a.pth) |
 | RepVGG-D2se\* |  200   |  133.33 (train) \| 120.39 (deploy)  | 36.56 (train) \| 32.85 (deploy)  |   81.81   |   95.94   | [config (train)](https://github.com/open-mmlab/mmclassification/blob/master/configs/repvgg/repvgg-D2se_4xb64-autoaug-lbs-mixup-coslr-200e_in1k.py) \|[config (deploy)](https://github.com/open-mmlab/mmclassification/blob/master/configs/repvgg/deploy/repvgg-D2se_deploy_4xb64-autoaug-lbs-mixup-coslr-200e_in1k.py) | [model](https://download.openmmlab.com/mmclassification/v0/repvgg/repvgg-D2se_3rdparty_4xb64-autoaug-lbs-mixup-coslr-200e_in1k_20210909-cf3139b7.pth) |
 
-*Models with \* are converted from other repos.*
+*Models with \* are converted from the [official repo](https://github.com/DingXiaoH/RepVGG). The config files of these models are only for validation. We don't ensure these config files' training accuracy and welcome you to contribute your reproduction results.*
 
-## Reparameterize RepVGG
+## Citation
 
-The checkpoints provided are all in `train` form. Use the reparameterize tool to switch them to more efficient `deploy` form, which not only has fewer parameters but also less calculations.
-
-```bash
-python ./tools/convert_models/reparameterize_repvgg.py ${CFG_PATH} ${SRC_CKPT_PATH} ${TARGET_CKPT_PATH}
 ```
-
-`${CFG_PATH}` is the config file, `${SRC_CKPT_PATH}` is the source chenpoint file, `${TARGET_CKPT_PATH}` is the target deploy weight file path.
-
-To use reparameterized repvgg weight, the config file must switch to [the deploy config files](./deploy) as below:
-
-```bash
-python ./tools/test.py ${RapVGG_Deploy_CFG} ${CHECK_POINT}
+@inproceedings{ding2021repvgg,
+  title={Repvgg: Making vgg-style convnets great again},
+  author={Ding, Xiaohan and Zhang, Xiangyu and Ma, Ningning and Han, Jungong and Ding, Guiguang and Sun, Jian},
+  booktitle={Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition},
+  pages={13733--13742},
+  year={2021}
+}
 ```
