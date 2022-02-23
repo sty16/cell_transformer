@@ -3,7 +3,10 @@ from mmcls.utils import load_json_logs
 import matplotlib.pyplot as plt
 import numpy as np
 
+
+
 if __name__ == '__main__':
+    # 首先分析训练的过程，并挑选出最好的学习模型
     file_dirs = './work_dir/vit'
     files = os.listdir(file_dirs)
     json_logs = [os.path.join(file_dirs, f) for f in os.listdir(file_dirs) if f.endswith('.json')]

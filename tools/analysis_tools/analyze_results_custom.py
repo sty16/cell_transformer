@@ -1,8 +1,10 @@
 import argparse
 import collections
 import copy
+import os.path
 import warnings
 import pickle
+import shutil
 
 import matplotlib.pyplot as plt
 import mmcv
@@ -45,12 +47,12 @@ def plot_embedding(data, gt_label, gt_classes, save_file, title):
     g.savefig(save_file)
 
 
-def plot_confusion_matrix(gt_labels, pred_labels):
+def plot_confusion_matrix(gt_labels, pred_labels, saved_path):
     label = ['Prim', 'Lym', 'Mono', 'Plas', 'Red', 'Promy', 'Myelo', 'Late', 'Rods', 'Lobu', 'Eosl']
     c_mat = confusion_matrix(pred_labels, gt_labels)
     c_normalized = c_mat.astype('float') / c_mat.sum(axis=1)[:, np.newaxis]
     plt.figure()
-    plt.imshow(c_normalized, cmap="viridis")
+    plt.imshow(c_normalized, cmap="plasma")
     num_label = len(label)
     indices = range(num_label)
     plt.xticks(indices, label, rotation=45)
@@ -61,7 +63,11 @@ def plot_confusion_matrix(gt_labels, pred_labels):
     for i in range(num_label):
         for j in range(num_label):
             plt.text(i, j, c_mat[i][j], va='center', ha='center')
-    plt.savefig('./confusion1.jpg')
+    root_dir = os.path.join(saved_path, 'other')
+    if not os.path.exists(root_dir):
+        os.makedirs(root_dir)
+    save_file = os.path.join(root_dir, 'confusion.png')
+    plt.savefig(save_file)
     plt.show()
 
 def get_class_accuracy(pred, gt_labels, classes, topk=1, thrs=0.):
@@ -75,13 +81,59 @@ def get_class_accuracy(pred, gt_labels, classes, topk=1, thrs=0.):
     # eval_result['f1_score'] = {k: v for k, v in zip(classes, res_f1_score)}
     eval_result['precision'] = {k: v for k, v in zip(classes, res_precision)}
     eval_result['recall   '] = {k: v for k, v in zip(classes, res_recall)}
-    print("\n")
+    print("平均分类准确率:%")
+    # TODO 计算平均的分类准确率
+    acc_array = (pred_labels == gt_labels)
+    acc = (sum(acc_array) / acc_array.size)
+    print(acc)
     for metrics, value in eval_result.items():
         print(metrics, value)
     return eval_result
 
+def plot_feature_heatmap(data, save_path):
+    C, H, W = data.shape
+    data = torch.mean(data, dim=0)
+    feature = data.cpu().numpy()
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    fig = sns.heatmap(feature, ax=ax)
+    ax.set_axis_off()
+    plt.savefig(save_path)
+    plt.close('all')
 
-def get_tsne(backbone_hook, gt_labels, gt_classes):
+def plot_image(filename, save_file):
+    im = plt.imread(filename)
+    plt.imshow(im)
+    plt.savefig(save_file)
+
+# 查看输出特征图
+def get_feature(backbone_hook, saved_path):
+    tokens = backbone_hook.features
+    inputs = []
+    for input in backbone_hook.inputs:
+        # 去除tensor的包裹
+        inputs.append(input[0])
+    inputs = torch.concat(inputs, dim=0)
+    feature_maps = []
+    for token in tokens:
+        x = token[-1]  # 取消tuple的包裹
+        if isinstance(x, list):
+            feature_map, _ = x
+            feature_maps.append(feature_map)
+        else:
+            assert 'error x is not a list'
+    feature_maps = torch.concat(feature_maps, dim=0)
+    B = feature_maps.shape[0]
+    root_dir = os.path.join(saved_path, 'heatmap')
+    if not os.path.exists(root_dir):
+        os.makedirs(root_dir)
+    for i in range(B):
+        heatmap_file = 'heatmap' + str(i) + '.png'
+        save_path = os.path.join(root_dir, heatmap_file)
+        plot_feature_heatmap(feature_maps[i, :], save_path)
+
+
+def get_tsne(backbone_hook, gt_labels, gt_classes, saved_path):
     tokens = backbone_hook.features
     inputs = []
     for input in backbone_hook.inputs:
@@ -94,7 +146,10 @@ def get_tsne(backbone_hook, gt_labels, gt_classes):
     tsne.fit_transform(inputs)
     inputs_emb = tsne.embedding_
     title = 't-SNE embedding of the inputs'
-    save_file = 'inputs_tsne.png'
+    root_dir = os.path.join(saved_path, 'tsne')
+    if not os.path.exists(root_dir):
+        os.makedirs(root_dir)
+    save_file = os.path.join(root_dir, 'inputs_tsne.png')
     plot_embedding(inputs_emb, gt_labels, gt_classes, save_file, title)
 
     cls_tokens = []
@@ -112,12 +167,12 @@ def get_tsne(backbone_hook, gt_labels, gt_classes):
     tsne = TSNE(n_components=2)
     tsne.fit_transform(feature_X)
     tsne_emb = tsne.embedding_
+    save_file = os.path.join(root_dir, 'cls_tsne.png')
+    title = 't-SNE embedding of the digits'
+    plot_embedding(tsne_emb, gt_labels, gt_classes, save_file, title)
 
 
-
-def main():
-    config = 'configs/vision_transformer/vitfg-base-p16_ft-64xb64_in1k-384.py'
-    checkpoint_file = 'work_dir/vit_fine_grained/latest.pth'
+def main(config, checkpoint_file):
     CLASSES = ('Prim', 'Lym', 'Mono', 'Plas', 'Red', 'Promy', 'Myelo', 'Late', 'Rods', 'Lobu', 'Eosl')
     cfg = mmcv.Config.fromfile(config)
     cfg.model.pretrained = None
@@ -142,32 +197,57 @@ def main():
     dataset = data_loader.dataset
     # for name, module in model.named_modules():
     #     print(name, module)
+    img_metas = []
+    meta_key = 'img_metas'
     for i, data in enumerate(data_loader):
         with torch.no_grad():
             result = model(return_loss=False, **data)
-            batch_size = len(result)
+            data_meta = data[meta_key].data
+            img_metas += data_meta
             results.extend(result)
-    get_tsne(backbone_hook, gt_labels, gt_classes)
+    filenames = [meta_info['filename'] for img_infos in img_metas for meta_info in img_infos]
+    # 将结果序列化到pkl文件中
+    res_infos = dict()
+    res_infos['backbone_hook'] = backbone_hook
+    res_infos['out'] = results
+    res_infos['gt_labels'] = gt_labels
+    res_infos['gt_classes'] = gt_classes
+    res_infos['filenames'] = filenames
+    res_infos['CLASSES'] = CLASSES
+    mmcv.dump(res_infos, 'tmp.pkl')
+
+def main1():
+    module_name = 'vit-base'
+    res_infos = mmcv.load('tmp.pkl')
+    backbone_hook = res_infos['backbone_hook']
+    results = res_infos['out']
+    gt_labels = res_infos['gt_labels']
+    gt_classes = res_infos['gt_classes']
+    filenames = res_infos['filenames']
+    CLASSES = res_infos['CLASSES']
+    saved_path = os.path.join('./result/imgs/', module_name)
+    # 对数据进行分析
+    # get_tsne(backbone_hook, gt_labels, gt_classes, saved_path)
     scores = np.asarray(results)
     pred_labels = np.argmax(scores, axis=1)
     get_class_accuracy(scores, gt_labels, CLASSES)
-    plot_confusion_matrix(pred_labels, gt_labels)
-    # 将结果序列化到pkl文件中
-    # result = dict()
-    # result['tsne_emb'] = tsne_emb
-    # result['gt_labels'] = gt_labels
-    # result['gt_classes'] = gt_classes
-    # mmcv.dump(result, 'tmp.pkl')
+    plot_confusion_matrix(pred_labels, gt_labels, saved_path)
+    # get_feature(backbone_hook, saved_path)
+    #
+    # root_dir = os.path.join(saved_path, 'src')
+    # if not os.path.exists(root_dir):
+    #     os.makedirs(root_dir)
+    # for i, file in enumerate(filenames):
+    #     dst_file = 'image' + str(i) + '.jpg'
+    #     dst_file = os.path.join(root_dir, dst_file)
+    #     shutil.copy(file, dst_file)
 
-def main1():
-    result = mmcv.load('tmp.pkl')
-    tsne_emb = result['tsne_emb']
-    gt_labels = result['gt_labels']
-    gt_classes = result['gt_classes']
-    plot_embedding(tsne_emb, gt_labels, gt_classes, 'tsne_feature.png')
 
 if __name__ == '__main__':
-    main()
+    config = 'configs/vision_transformer/vit-base-p16_pt-64xb64_in1k-224.py'
+    checkpoint_file = 'work_dir/vit/epoch_70.pth'
+    # main(config, checkpoint_file)
+    main1()
 
 
 

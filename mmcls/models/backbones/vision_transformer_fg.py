@@ -109,7 +109,7 @@ class PartAttention(BaseModule):
         """
 
         Args:
-            x (List): The attention weights of each encoder layer, x[i] with the shape [B, num_heads, N, N]
+            x (List): The attention weights of each encoder layer, x[i] with the shape [B, num_heads, N, N], x with the shape [num_layer, B, num_heads, N, N]
         Returns:
             torch.Tensor: The selected Patch of the image [B, num]
         """
