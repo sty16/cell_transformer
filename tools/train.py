@@ -12,10 +12,10 @@ from mmcv import Config, DictAction
 from mmcv.runner import get_dist_info, init_dist
 
 from mmcls import __version__
-from mmcls.apis import set_random_seed, train_model
+from mmcls.apis import init_random_seed, set_random_seed, train_model
 from mmcls.datasets import build_dataset
 from mmcls.models import build_classifier
-from mmcls.utils import collect_env, get_root_logger
+from mmcls.utils import collect_env, get_root_logger, setup_multi_processes
 
 
 def parse_args():
@@ -29,7 +29,8 @@ def parse_args():
         action='store_true',
         help='whether not to evaluate the checkpoint during training')
     group_gpus = parser.add_mutually_exclusive_group()
-    group_gpus.add_argument('--device', help='device used for training')
+    group_gpus.add_argument(
+        '--device', help='device used for training. (Deprecated)')
     group_gpus.add_argument(
         '--gpus',
         type=int,
@@ -81,6 +82,12 @@ def parse_args():
         warnings.warn('--options is deprecated in favor of --cfg-options')
         args.cfg_options = args.options
 
+    if args.device:
+        warnings.warn(
+            '--device is deprecated. To use cpu to train, please '
+            'refers to https://mmclassification.readthedocs.io/en/latest/'
+            'getting_started.html#train-a-model')
+
     return args
 
 
@@ -90,6 +97,10 @@ def main():
     cfg = Config.fromfile(args.config)
     if args.cfg_options is not None:
         cfg.merge_from_dict(args.cfg_options)
+
+    # set multi-process settings
+    setup_multi_processes(cfg)
+
     # set cudnn_benchmark
     if cfg.get('cudnn_benchmark', False):
         torch.backends.cudnn.benchmark = True
@@ -143,12 +154,12 @@ def main():
     logger.info(f'Config:\n{cfg.pretty_text}')
 
     # set random seeds
-    if args.seed is not None:
-        logger.info(f'Set random seed to {args.seed}, '
-                    f'deterministic: {args.deterministic}')
-        set_random_seed(args.seed, deterministic=args.deterministic)
-    cfg.seed = args.seed
-    meta['seed'] = args.seed
+    seed = init_random_seed(args.seed)
+    logger.info(f'Set random seed to {seed}, '
+                f'deterministic: {args.deterministic}')
+    set_random_seed(seed, deterministic=args.deterministic)
+    cfg.seed = seed
+    meta['seed'] = seed
 
     model = build_classifier(cfg.model)
     model.init_weights()
@@ -158,13 +169,15 @@ def main():
         val_dataset = copy.deepcopy(cfg.data.val)
         val_dataset.pipeline = cfg.data.train.pipeline
         datasets.append(build_dataset(val_dataset))
-    if cfg.checkpoint_config is not None:
-        # save mmcls version, config file content and class names in
-        # checkpoints as meta data
-        cfg.checkpoint_config.meta = dict(
+
+    # save mmcls version, config file content and class names in
+    # runner as meta data
+    meta.update(
+        dict(
             mmcls_version=__version__,
             config=cfg.pretty_text,
-            CLASSES=datasets[0].CLASSES)
+            CLASSES=datasets[0].CLASSES))
+
     # add an attribute for visualization convenience
     train_model(
         model,

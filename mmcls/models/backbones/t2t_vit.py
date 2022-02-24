@@ -228,7 +228,7 @@ class T2T_ViT(BaseBackbone):
     """Tokens-to-Token Vision Transformer (T2T-ViT)
 
     A PyTorch implementation of `Tokens-to-Token ViT: Training Vision
-    Transformers from Scratch on ImageNet<https://arxiv.org/abs/2101.11986>`_
+    Transformers from Scratch on ImageNet <https://arxiv.org/abs/2101.11986>`_
 
     Args:
         img_size (int): Input image size.
@@ -282,6 +282,7 @@ class T2T_ViT(BaseBackbone):
         # Class token
         self.output_cls_token = output_cls_token
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dims))
+        self.num_extra_tokens = 1
 
         # Position Embedding
         sinusoid_table = get_sinusoid_encoding(num_patches + 1, embed_dims)

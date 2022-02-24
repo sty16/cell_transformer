@@ -4,8 +4,10 @@ import warnings
 
 import numpy as np
 import torch
+import torch.distributed as dist
 from mmcv.parallel import MMDataParallel, MMDistributedDataParallel
-from mmcv.runner import DistSamplerSeedHook, build_optimizer, build_runner
+from mmcv.runner import (DistSamplerSeedHook, build_optimizer, build_runner,
+                         get_dist_info)
 
 from mmcls.core import DistOptimizerHook
 from mmcls.datasets import build_dataloader, build_dataset
@@ -27,6 +29,39 @@ except ImportError:
     warnings.warn('DeprecationWarning: FP16OptimizerHook from mmcls will be '
                   'deprecated. Please install mmcv>=1.1.4.')
     from mmcls.core import Fp16OptimizerHook
+
+
+def init_random_seed(seed=None, device='cuda'):
+    """Initialize random seed.
+
+    If the seed is not set, the seed will be automatically randomized,
+    and then broadcast to all processes to prevent some potential bugs.
+
+    Args:
+        seed (int, Optional): The seed. Default to None.
+        device (str): The device where the seed will be put on.
+            Default to 'cuda'.
+
+    Returns:
+        int: Seed to be used.
+    """
+    if seed is not None:
+        return seed
+
+    # Make sure all ranks share the same random seed to prevent
+    # some potential bugs. Please refer to
+    # https://github.com/open-mmlab/mmdetection/issues/6339
+    rank, world_size = get_dist_info()
+    seed = np.random.randint(2**31)
+    if world_size == 1:
+        return seed
+
+    if rank == 0:
+        random_num = torch.tensor(seed, dtype=torch.int32, device=device)
+    else:
+        random_num = torch.tensor(0, dtype=torch.int32, device=device)
+    dist.broadcast(random_num, src=0)
+    return random_num.item()
 
 
 def set_random_seed(seed, deterministic=False):
@@ -54,12 +89,14 @@ def train_model(model,
                 distributed=False,
                 validate=False,
                 timestamp=None,
-                device='cuda',
+                device=None,
                 meta=None):
     logger = get_root_logger()
 
     # prepare data loaders
     dataset = dataset if isinstance(dataset, (list, tuple)) else [dataset]
+
+    sampler_cfg = cfg.data.get('sampler', None)
 
     data_loaders = [
         build_dataloader(
@@ -70,7 +107,8 @@ def train_model(model,
             num_gpus=len(cfg.gpu_ids),
             dist=distributed,
             round_up=True,
-            seed=cfg.seed) for ds in dataset
+            seed=cfg.seed,
+            sampler_cfg=sampler_cfg) for ds in dataset
     ]
 
     # put model on gpus
@@ -84,13 +122,19 @@ def train_model(model,
             broadcast_buffers=False,
             find_unused_parameters=find_unused_parameters)
     else:
-        if device == 'cuda':
-            model = MMDataParallel(
-                model.cuda(cfg.gpu_ids[0]), device_ids=cfg.gpu_ids)
-        elif device == 'cpu':
+        if device == 'cpu':
+            warnings.warn(
+                'The argument `device` is deprecated. To use cpu to train, '
+                'please refers to https://mmclassification.readthedocs.io/en'
+                '/latest/getting_started.html#train-a-model')
             model = model.cpu()
         else:
-            raise ValueError(F'unsupported device name {device}.')
+            model = MMDataParallel(model, device_ids=cfg.gpu_ids)
+            if not model.device_ids:
+                from mmcv import digit_version, __version__
+                assert digit_version(__version__) >= (1, 4, 4), \
+                    'To train with CPU, please confirm your mmcv version ' \
+                    'is not lower than v1.4.4'
 
     # build runner
     optimizer = build_optimizer(model, cfg.optimizer)

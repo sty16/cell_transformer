@@ -1,6 +1,7 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import copy
 from abc import ABCMeta, abstractmethod
+from typing import List
 
 import mmcv
 import numpy as np
@@ -64,17 +65,17 @@ class BaseDataset(Dataset, metaclass=ABCMeta):
         gt_labels = np.array([data['gt_label'] for data in self.data_infos])
         return gt_labels
 
-    def get_cat_ids(self, idx):
+    def get_cat_ids(self, idx: int) -> List[int]:
         """Get category id by index.
 
         Args:
             idx (int): Index of data.
 
         Returns:
-            int: Image category of specified index.
+            cat_ids (List[int]): Image category of specified index.
         """
 
-        return self.data_infos[idx]['gt_label'].astype(np.int)
+        return [int(self.data_infos[idx]['gt_label'])]
 
     def prepare_data(self, idx):
         results = copy.deepcopy(self.data_infos[idx])
@@ -117,6 +118,7 @@ class BaseDataset(Dataset, metaclass=ABCMeta):
                  results,
                  metric='accuracy',
                  metric_options=None,
+                 indices=None,
                  logger=None):
         """Evaluate the dataset.
 
@@ -127,6 +129,8 @@ class BaseDataset(Dataset, metaclass=ABCMeta):
             metric_options (dict, optional): Options for calculating metrics.
                 Allowed keys are 'topk', 'thrs' and 'average_mode'.
                 Defaults to None.
+            indices (list, optional): The indices of samples corresponding to
+                the results. Defaults to None.
             logger (logging.Logger | str, optional): Logger used for printing
                 related information during evaluation. Defaults to None.
         Returns:
@@ -144,6 +148,8 @@ class BaseDataset(Dataset, metaclass=ABCMeta):
         eval_results = {}
         results = np.vstack(results)
         gt_labels = self.get_gt_labels()
+        if indices is not None:
+            gt_labels = gt_labels[indices]
         num_imgs = len(results)
         assert len(gt_labels) == num_imgs, 'dataset testing results should '\
             'be of the same length as gt_labels.'

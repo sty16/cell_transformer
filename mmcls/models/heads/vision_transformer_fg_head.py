@@ -72,7 +72,10 @@ class VisionTransformerFgClsHead(ClsHead):
     def simple_test(self, x):
         """Test without augmentation."""
         x = x[-1]
-        _, cls_token = x
+        if isinstance(x,  list):
+            _, cls_token = x
+        else:
+            assert 'error input is not a list'
         cls_score = self.layers(cls_token)
         if isinstance(cls_score, list):
             cls_score = sum(cls_score) / float(len(cls_score))
@@ -81,11 +84,31 @@ class VisionTransformerFgClsHead(ClsHead):
 
     def forward_train(self, x, gt_label, **kwargs):
         x = x[-1]
-        _, cls_token = x
+        if isinstance(x, list):
+            _, cls_token = x
+        else:
+            assert 'error input is not a list'
         cls_score = self.layers(cls_token)
-        cls_loss = self.loss(cls_score, gt_label, **kwargs)
-        contrast_loss = self.contrast_loss(cls_token, gt_label.view(-1))
-        losses = cls_loss + contrast_loss
+        losses = self.loss(cls_score, gt_label, **kwargs)
+        return losses
+
+    def loss(self, cls_score, gt_label, **kwargs):
+        num_samples = len(cls_score)
+        losses = dict()
+        # compute loss
+        cls_loss = self.compute_loss(
+            cls_score, gt_label, avg_factor=num_samples, **kwargs)
+        contrast_loss = self.contrast_loss(cls_score, gt_label.view(-1))
+        loss = cls_loss + contrast_loss
+        if self.cal_acc:
+            # compute accuracy
+            acc = self.compute_accuracy(cls_score, gt_label)
+            assert len(acc) == len(self.topk)
+            losses['accuracy'] = {
+                f'top-{k}': a
+                for k, a in zip(self.topk, acc)
+            }
+        losses['loss'] = loss
         return losses
 
     def contrast_loss(self, tokens, gt_label):
