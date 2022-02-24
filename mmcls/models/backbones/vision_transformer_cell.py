@@ -8,6 +8,7 @@ import torch.nn.functional as F
 from mmcv.cnn import build_norm_layer
 from mmcv.cnn.bricks.transformer import FFN
 from mmcv.runner.base_module import BaseModule, ModuleList
+from mmcv.cnn import ConvModule
 
 from mmcls.utils import get_root_logger
 from ..builder import BACKBONES
@@ -100,34 +101,97 @@ class TransformerEncoderLayer(BaseModule):
         x = self.ffn(self.norm2(x), identity=x)
         return x, weight
 
+class SELayer(BaseModule):
+    """Squeeze-and-Excitation Module.
 
-class PartAttention(BaseModule):
-    def __init__(self):
-        super(PartAttention, self).__init__()
+    Args:
+        channels (int): The input (and output) channels of the SE layer.
+        squeeze_channels (None or int): The intermediate channel number of
+            SElayer. Default: None, means the value of ``squeeze_channels``
+            is ``make_divisible(channels // ratio, divisor)``.
+        ratio (int): Squeeze ratio in SELayer, the intermediate channel will
+            be ``make_divisible(channels // ratio, divisor)``. Only used when
+            ``squeeze_channels`` is None. Default: 16.
+        divisor(int): The divisor to true divide the channel number. Only
+            used when ``squeeze_channels`` is None. Default: 8.
+        conv_cfg (None or dict): Config dict for convolution layer. Default:
+            None, which means using conv2d.
+        act_cfg (dict or Sequence[dict]): Config dict for activation layer.
+            If act_cfg is a dict, two activation layers will be configurated
+            by this dict. If act_cfg is a sequence of dicts, the first
+            activation layer will be configurated by the first dict and the
+            second activation layer will be configurated by the second dict.
+            Default: (dict(type='ReLU'), dict(type='Sigmoid'))
+    """
+
+    def __init__(self,
+                 channels,
+                 squeeze_channels,
+                 bias='auto',
+                 conv_cfg=None,
+                 act_cfg=(dict(type='ReLU'), dict(type='Sigmoid')),
+                 init_cfg=None):
+        super(SELayer, self).__init__(init_cfg)
+        self.global_avgpool = nn.AdaptiveAvgPool2d(1)
+        self.conv1 = ConvModule(
+            in_channels=channels,
+            out_channels=squeeze_channels,
+            kernel_size=1,
+            stride=1,
+            bias=bias,
+            conv_cfg=conv_cfg,
+            act_cfg=act_cfg[0])
+        self.conv2 = ConvModule(
+            in_channels=squeeze_channels,
+            out_channels=channels,
+            kernel_size=1,
+            stride=1,
+            bias=bias,
+            conv_cfg=conv_cfg,
+            act_cfg=act_cfg[1])
+
+    def forward(self, x):
+        out = self.global_avgpool(x)
+        out = self.conv1(out)
+        out = self.conv2(out)
+        return x * out
+
+class SparseAttention(BaseModule):
+    def __init__(self, channels, squeeze_channels):
+        super(SparseAttention, self).__init__()
+        self.se_layer = SELayer(channels=channels, squeeze_channels=squeeze_channels)
 
     def forward(self, x):
         """
-
+        This model select the discriminative tokens for the last encoder layer input
         Args:
-            x (List): The attention weights of each encoder layer, x[i] with the shape [B, num_heads, N, N], x with the shape [num_layer, B, num_heads, N, N]
+            x (List): The attention weights of each encoder layer, x with the shape [num_layer, B, num_heads, N, N]
         Returns:
-            torch.Tensor: The selected Patch of the image [B, num]
+            torch.Tensor: The selected Patch of the image [B, num_heads]
         """
-        num_layer = len(x)
-        assert num_layer > 0, \
-            'input list must not be empty'
-        last_attn = x[0]
-        for i in range(1, num_layer):
-            last_attn = torch.matmul(x[i], last_attn)
-        # select the cls token attention
-        last_attn = last_attn[:, :, 0, 1:]
-        max_value, max_idx = last_attn.max(2)
+        assert len(x.shape) == 5, \
+            'input x must with shape [num_layers, B, num_heads, N, N]'
+        num_layers, B, num_heads, N, _ = x.shape
+        # learn the layer weight so permute x with shape [B, num_heads, num_layers, N, N]
+
+        x = x.permute(1, 2, 0, 3, 4).contiguous()
+        x = x.reshape(B * num_heads, num_layers, N, N)
+        x = self.se_layer(x)
+        x = x.reshape(B, num_heads, num_layers, N, N)
+        x = torch.sum(x, dim=2)
+        # last_attn = x[0]
+        # for i in range(1, num_layer):
+        #     last_attn = torch.matmul(x[i], last_attn)
+        x = x[:, :, 0, 1:]
+        max_value, max_idx = x.max(2)
         return max_value, max_idx
 
 
 
+
+
 @BACKBONES.register_module()
-class VisionTransformerFg(BaseBackbone):
+class VisionTransformerCell(BaseBackbone):
     """Vision Transformer.
 
     A PyTorch implement of : `An Image is Worth 16x16 Words:
@@ -197,7 +261,7 @@ class VisionTransformerFg(BaseBackbone):
                  patch_cfg=dict(),
                  layer_cfgs=dict(),
                  init_cfg=None):
-        super(VisionTransformerFg, self).__init__(init_cfg)
+        super(VisionTransformerCell, self).__init__(init_cfg)
 
         if isinstance(arch, str):
             arch = arch.lower()
@@ -267,7 +331,7 @@ class VisionTransformerFg(BaseBackbone):
             _layer_cfg.update(layer_cfgs[i])
             self.layers.append(TransformerEncoderLayer(**_layer_cfg))
         # attention patch selection module
-        self.attn_select = PartAttention()
+        self.attn_select = SparseAttention(channels=self.num_layers, squeeze_channels=2 * self.num_layers)
         select_layer_cfg = dict(
             embed_dims=self.embed_dims,
             num_heads=self.arch_settings['num_heads'],
@@ -300,7 +364,7 @@ class VisionTransformerFg(BaseBackbone):
             init_cfg.pop('type')
             self._load_checkpoint(**init_cfg)
         else:
-            super(VisionTransformerFg, self).init_weights()
+            super(VisionTransformerCell, self).init_weights()
             # Modified from ClassyVision
             nn.init.normal_(self.pos_embed, std=0.02)
 
@@ -394,30 +458,23 @@ class VisionTransformerFg(BaseBackbone):
             attn_weights.append(weights)
             if i == len(self.layers) - 1 and self.final_norm:
                 x = self.norm1(x)
-
-            if i in self.out_indices:
-                B, _, C = x.shape
-                patch_token = x[:, 1:].reshape(B, *patch_resolution, C)
-                patch_token = patch_token.permute(0, 3, 1, 2)
-                cls_token = x[:, 0]
-                if self.output_cls_token:
-                    out = [patch_token, cls_token]
-                else:
-                    out = patch_token
-                outs.append(out)
+        attn_weights = torch.stack(attn_weights, dim=0)
         _, patch_select = self.attn_select(attn_weights)
         # select the graph patch so need to add 1 here
         patch_select = patch_select + 1
         attn_parts = []
-        B = patch_select.shape[0]
+        B, _, C = x.shape
+        # print(patch_select)
         for i in range(B):
             attn_parts.append(x[i, patch_select[i, :]])
         attn_parts = torch.stack(attn_parts)
         attn_parts = torch.cat((x[:, 0].unsqueeze(1), attn_parts), dim=1)
         attn_encoded_parts, _ = self.attn_encoder(attn_parts)
+        patch_token = attn_encoded_parts[:, 1:]
+        cls_token = attn_encoded_parts[:, 0]
         if self.output_cls_token:
-            out = [attn_encoded_parts[:, 1:], attn_encoded_parts[:, 0]]
+            out = [patch_token, cls_token]
         else:
-            out = attn_encoded_parts
-        # outs.append(out)
+            out = patch_token
+        outs = [out]
         return tuple(outs)

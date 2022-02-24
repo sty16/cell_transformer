@@ -46,7 +46,7 @@ class Data2Imagenet:
                 if flag_aug:
                     imgs = self.data_augment(img)
                     if folder_name == 'EOS':
-                        imgs = imgs[:2]
+                        imgs = imgs[:1]
                     for i, img in enumerate(imgs):
                         target_file = os.path.join(f'{self.saved_imagenet_path}/train/{folder_name}/', file_name[:-5] + '_aug_' + str(i) + '.jpg')
                         cv2.imwrite(target_file, img)
@@ -61,7 +61,7 @@ class Data2Imagenet:
                 if flag_aug:
                     imgs = self.data_augment(img)
                     if folder_name == 'EOS':
-                        imgs = imgs[:2]
+                        imgs = imgs[:1]
                     for i, img in enumerate(imgs):
                         self.ann.append((file_name[:-5] + '_aug_' + str(i) + '.jpg', label))
                         target_file = os.path.join(f'{self.saved_imagenet_path}/val/', file_name[:-5] + '_aug_' + str(i) + '.jpg')

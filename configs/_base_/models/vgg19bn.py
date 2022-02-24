@@ -3,7 +3,7 @@ pretrained = 'https://download.openmmlab.com/mmclassification/v0/vgg/vgg19_bn_ba
 model = dict(
     type='ImageClassifier',
     backbone=dict(
-        type='VGG', depth=19, norm_cfg=dict(type='BN'), num_classes=11,
+        type='VGG', depth=19, norm_cfg=dict(type='BN'), num_classes=10,
         init_cfg=dict(
             type='Pretrained',
             checkpoint=pretrained,

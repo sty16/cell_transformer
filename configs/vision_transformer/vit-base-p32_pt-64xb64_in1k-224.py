@@ -8,5 +8,5 @@ _base_ = [
 model = dict(
     head=dict(hidden_dim=3072),
     train_cfg=dict(
-        augments=dict(type='BatchMixup', alpha=0.2, num_classes=1000,
+        augments=dict(type='BatchMixup', alpha=0.2, num_classes=10,
                       prob=1.)))

@@ -18,7 +18,6 @@ from .base_backbone import BaseBackbone
 
 class TransformerEncoderLayer(BaseModule):
     """Implements one encoder layer in Vision Transformer.
-
     Args:
         embed_dims (int): The feature dimension
         num_heads (int): Parallel attention heads
@@ -95,7 +94,8 @@ class TransformerEncoderLayer(BaseModule):
                 nn.init.normal_(m.bias, std=1e-6)
 
     def forward(self, x):
-        x = x + self.attn(self.norm1(x))
+        # TODO 这里有改动
+        x = x + self.attn(self.norm1(x))[0]
         x = self.ffn(self.norm2(x), identity=x)
         return x
 
@@ -103,10 +103,8 @@ class TransformerEncoderLayer(BaseModule):
 @BACKBONES.register_module()
 class VisionTransformer(BaseBackbone):
     """Vision Transformer.
-
     A PyTorch implement of : `An Image is Worth 16x16 Words: Transformers
     for Image Recognition at Scale <https://arxiv.org/abs/2010.11929>`_
-
     Args:
         arch (str | dict): Vision Transformer architecture
             Default: 'b'
@@ -314,7 +312,6 @@ class VisionTransformer(BaseBackbone):
                          mode='bicubic',
                          num_extra_tokens=1):
         """Resize pos_embed weights.
-
         Args:
             pos_embed (torch.Tensor): Position embedding weights with shape
                 [1, L, C].
