@@ -14,7 +14,7 @@ from .cls_head import ClsHead
 
 
 @HEADS.register_module()
-class VisionTransformerFgClsHead(ClsHead):
+class VisionTransformerCellClsHead(ClsHead):
     """Vision Transformer classifier head.
 
     Args:
@@ -35,7 +35,7 @@ class VisionTransformerFgClsHead(ClsHead):
                  init_cfg=dict(type='Constant', layer='Linear', val=0),
                  *args,
                  **kwargs):
-        super(VisionTransformerFgClsHead, self).__init__(
+        super(VisionTransformerCellClsHead, self).__init__(
             init_cfg=init_cfg, *args, **kwargs)
         self.in_channels = in_channels
         self.num_classes = num_classes
@@ -60,7 +60,7 @@ class VisionTransformerFgClsHead(ClsHead):
         self.layers = Sequential(OrderedDict(layers))
 
     def init_weights(self):
-        super(VisionTransformerFgClsHead, self).init_weights()
+        super(VisionTransformerCellClsHead, self).init_weights()
         # Modified from ClassyVision
         if hasattr(self.layers, 'pre_logits'):
             # Lecun norm

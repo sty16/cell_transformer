@@ -1,6 +1,5 @@
 # model settings
-pretrained_384 = 'https://download.openmmlab.com/mmclassification/v0/vit/finetune/vit-base-p16_in21k-pre-3rdparty_ft-64xb64_in1k-384_20210928-98e8652b.pth'
-pretrained_224 = 'https://download.openmmlab.com/mmclassification/v0/vit/finetune/vit-base-p16_in21k-pre-3rdparty_ft-64xb64_in1k-384_20210928-98e8652b.pth'
+pretrained = 'https://download.openmmlab.com/mmclassification/v0/vit/finetune/vit-base-p16_in21k-pre-3rdparty_ft-64xb64_in1k-384_20210928-98e8652b.pth'
 
 model = dict(
     type='ImageClassifier',
@@ -12,7 +11,7 @@ model = dict(
         drop_rate=0.1,
         init_cfg=dict(
             type='Pretrained',
-            checkpoint=pretrained_224,
+            checkpoint=pretrained,
             prefix='backbone',
         ),
     ),
