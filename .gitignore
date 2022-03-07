@@ -127,4 +127,5 @@ venv.bak/
 /work_dir/*
 /work_dir
 /result/*
-/result
+/result/
+/pics/

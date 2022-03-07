@@ -215,7 +215,7 @@ class VisionTransformer(BaseBackbone):
             img_size=img_size,
             embed_dims=self.embed_dims,
             conv_cfg=dict(
-                type='Conv2d', kernel_size=patch_size, stride=patch_size),
+                type='Conv2d', kernel_size=patch_size, stride=patch_size - 8),
         )
         _patch_cfg.update(patch_cfg)
         self.patch_embed = PatchEmbed(**_patch_cfg)
