@@ -21,9 +21,9 @@ mim install -e .
 The datasets are available in this  [Link](https://pan.baidu.com/s/1CnUzgsPqKLIsz5TB2WSZcw) extract code: w52v
 ## Performance on TMAMD
 
-| Backbone              |  Accuracy Top-1 (%)  |  Model      |
-| :-------------------: | :---------------: | :--------: |
-| Vision Transfomer Cell | 91.88     | [Link](https://pan.baidu.com/s/1NUOFaVCriodqvzlRIh7exw )  extract code:js7z |
+| Backbone              |  Accuracy Top-1 (%)  |                                   Model                                    |
+| :-------------------: | :---------------: |:--------------------------------------------------------------------------:|
+| Vision Transfomer Cell | 91.88     | [Link](https://pan.baidu.com/s/1NUOFaVCriodqvzlRIh7exw)  extract code:js7z |
 
 ## Get Started
 
