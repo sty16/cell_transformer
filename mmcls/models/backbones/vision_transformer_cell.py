@@ -183,8 +183,7 @@ class SparseAttention(BaseModule):
         # for i in range(1, num_layer):
         #     last_attn = torch.matmul(x[i], last_attn)
         x = x[:, :, 0, 1:]
-        max_value, max_idx = x.max(2)
-        return max_value, max_idx
+        return x
 
 
 
@@ -459,7 +458,8 @@ class VisionTransformerCell(BaseBackbone):
             if i == len(self.layers) - 1 and self.final_norm:
                 x = self.norm1(x)
         attn_weights = torch.stack(attn_weights, dim=0)
-        _, patch_select = self.attn_select(attn_weights)
+        attn = self.attn_select(attn_weights)
+        _, patch_select = attn.max(2)   # select the max head with the token
         # select the graph patch so need to add 1 here
         patch_select = patch_select + 1
         attn_parts = []

@@ -48,21 +48,22 @@ def plot_embedding(data, gt_label, gt_classes, save_file, title):
 
 
 def plot_confusion_matrix(gt_labels, pred_labels, saved_path):
-    label = ['Prim', 'Lym', 'Mono', 'Plas', 'Red', 'Promy', 'Myelo', 'Late', 'Rods', 'Lobu', 'Eosl']
+    # label = ['Prim', 'Lym', 'Mono', 'Plas', 'Red', 'Promy', 'Myelo', 'Late', 'Rods', 'Lobu', 'Eosl']
+    label = ['BAS', 'EBO', 'EOS', 'LYT', 'MON', 'MYB', 'MYO', 'NGB', 'NGS', 'PMO']
     c_mat = confusion_matrix(pred_labels, gt_labels)
     c_normalized = c_mat.astype('float') / c_mat.sum(axis=1)[:, np.newaxis]
     plt.figure()
-    plt.imshow(c_normalized, cmap="plasma")
+    plt.imshow(c_normalized, cmap="viridis")
     num_label = len(label)
     indices = range(num_label)
     plt.xticks(indices, label, rotation=45)
     plt.yticks(indices, label)
     cb = plt.colorbar()
     cb.set_ticks(np.arange(0, 1.0, 0.1))
-    plt.title('confusion matrix')
+    plt.title('')
     for i in range(num_label):
         for j in range(num_label):
-            plt.text(i, j, c_mat[i][j], va='center', ha='center')
+            plt.text(i, j, str(c_mat[j][i]), va='center', ha='center')
     root_dir = os.path.join(saved_path, 'other')
     if not os.path.exists(root_dir):
         os.makedirs(root_dir)
@@ -74,8 +75,8 @@ def get_class_accuracy(pred, gt_labels, classes, topk=1, thrs=0.):
     pred_labels = np.argmax(pred, axis=1)
     res_precision = precision_score(gt_labels, pred_labels, average=None)
     res_recall = recall_score(gt_labels, pred_labels, average=None)
-    res_recall = [round(x, 3) for x in res_recall]
-    res_precision = [round(x, 3) for x in res_precision]
+    res_recall = [round(x, 5) for x in res_recall]
+    res_precision = [round(x, 5) for x in res_precision]
     eval_result = {}
     assert len(res_recall) == len(classes)
     # eval_result['f1_score'] = {k: v for k, v in zip(classes, res_f1_score)}
@@ -173,7 +174,8 @@ def get_tsne(backbone_hook, gt_labels, gt_classes, saved_path):
 
 
 def main(config, checkpoint_file):
-    CLASSES = ('Prim', 'Lym', 'Mono', 'Plas', 'Red', 'Promy', 'Myelo', 'Late', 'Rods', 'Lobu', 'Eosl')
+    # CLASSES = ('Prim', 'Lym', 'Mono', 'Plas', 'Red', 'Promy', 'Myelo', 'Late', 'Rods', 'Lobu', 'Eosl')
+    CLASSES = ('BAS', 'EBO', 'EOS', 'LYT', 'MON', 'MYB', 'MYO', 'NGB', 'NGS', 'PMO')
     cfg = mmcv.Config.fromfile(config)
     cfg.model.pretrained = None
     cfg.model.backbone.init_cfg = None
@@ -217,7 +219,7 @@ def main(config, checkpoint_file):
     mmcv.dump(res_infos, 'tmp.pkl')
 
 def main1():
-    module_name = 'vit-base'
+    module_name = 'vit-base-cell'
     res_infos = mmcv.load('tmp.pkl')
     backbone_hook = res_infos['backbone_hook']
     results = res_infos['out']
@@ -244,9 +246,10 @@ def main1():
 
 
 if __name__ == '__main__':
-    config = 'configs/vision_transformer/vit-base-p16_pt-64xb64_in1k-224.py'
-    checkpoint_file = 'work_dir/vit/epoch_70.pth'
+    config = 'configs/vision_transformer/vit-base-cell-p16_pt-64xb64_in1k-224.py'
+    checkpoint_file = 'work_dir/vision_transformer_cell_test/epoch_52.pth'
     # main(config, checkpoint_file)
+
     main1()
 
 

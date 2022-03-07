@@ -24,7 +24,7 @@ test_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(
         type='Resize',
-        size=(256, -1),
+        size=224,  # 此处有修改
         backend='pillow',
         interpolation='bicubic'),
     dict(type='CenterCrop', crop_size=224),

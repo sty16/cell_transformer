@@ -2,7 +2,7 @@
 
 The Code for "基于改进Vision Transformer的血细胞图像识别方法研究"
 
-This repository is based on [mmdetection](https://github.com/open-mmlab/mmdetection).
+This repository is based on [mmclassification](https://github.com/open-mmlab/mmclassification/).
 
 ![architecture](https://s2.loli.net/2022/02/25/i1zLKmHflNMp3kw.png)
 
@@ -23,7 +23,7 @@ The datasets are available in this  [Link](https://pan.baidu.com/s/1CnUzgsPqKLIs
 
 | Backbone              |  Accuracy Top-1 (%)  |  Model      |
 | :-------------------: | :---------------: | :--------: |
-| Vision Transfomer Cell | 91.73         | [Link](https://drive.google.com/open?id=1_D1taHnljoZOhi5UPqDAe4QdUcAylnIJ )                                                      |
+| Vision Transfomer Cell | 91.88     | [Link](https://pan.baidu.com/s/1NUOFaVCriodqvzlRIh7exw )  extract code:js7z |
 
 ## Get Started
 
@@ -42,6 +42,8 @@ python tools/train.py configs/vision_transformer/vit-base-cell-p16_pt-64xb64_in1
 | vit-base-cell-p16_pt-64xb64_in1k-224.py | configs/vision_transformer/ |  backbone config   |
 |     vision_transformer_head_cell.py     | mmcls/models/heads/         | head and loss func |
 |         analyze_results_cell.py         | tools/analysis_tools/       |   analyze result   |
+|           show_attn_custom.py           | tools/analysis_tools/       | draw attention map |
+|              show_tsne.py               | tools/analysis_tools/       |   draw tsne map    |
 
 ### Test on TMAMD Dataset
 
@@ -54,7 +56,7 @@ python tools/test ${CONFIG_FILE} ${CHECKPOINT_FILE} --out ${RESULT_FILE} [--eval
 ```
 
 Arguments:
-- `CONFIG_FILE`: Path to one of the file in `configs/rdsnet/`.
+- `CONFIG_FILE`: Path to one of the file in `configs/vision_transformer/vit-base-cell-p16_pt-64xb64_in1k-224.py`.
 - `CHECKPOINT_FILE`: Path to the checkpoints.
 
 Optional arguments:
@@ -67,6 +69,7 @@ Optional arguments:
 
 Please consider citing our paper in your publications if the project helps your research.
 
-```bash
-
+```shell
+wait for the paper being received
 ```
+
